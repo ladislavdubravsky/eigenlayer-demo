@@ -34,7 +34,7 @@ Prerequisites:
 
 ### Mainnet exploration
 
-Eigenlayer has two sets of smart contracts: [core protocol contracts](https://github.com/Layr-Labs/eigenlayer-contracts) and [AVS specific contracts]() expected to be to some extent modified and deployed by each AVS. Furthermore we want an AVS to look at, we chose the flagship [EigenDA]() AVS by Eigenlayer. We have all repos here as dependencies to obtain mainnet-deployed contract addresses and ABIs.
+Eigenlayer has two sets of smart contracts: [core protocol contracts](https://github.com/Layr-Labs/eigenlayer-contracts) and [AVS specific contracts](https://github.com/Layr-Labs/eigenlayer-middleware) expected to be to some extent modified and deployed by each AVS. Furthermore we want an AVS to look at, we chose the flagship [EigenDA](https://github.com/Layr-Labs/eigenda) AVS by Eigenlayer. We have copied mainnet contract addresses into `contracts/deployments`.
 
 There are many natural questions to ask:
 * how many AVSs are there currently?
@@ -45,7 +45,50 @@ There are many natural questions to ask:
 * what kinds of stake does an AVS accept? are there any other criteria on candidate operators?
 * ...
 
-### Fork testing
+We need access to a mainnet Ethereum node to ask about chain state. Get some node RPC url e.g. [here](https://chainlist.org/chain/1), place in `.env`, `source .env && cd contracts`.
+
+#### Using cast
+
+To nicely encode and decode data for the RPC calls we can use foundry's [cast](https://book.getfoundry.sh/cast/), e.g.:
+
+Get a storage variable value:
+```
+cast call \
+    --rpc-url $RPC_URL \
+    $(jq -r '.addresses.rewardsCoordinator' deployments/eigenlayer.json) \
+    "rewardsUpdater()(address)"
+```
+
+Look for operator (de)registration events in a block interval:
+```
+cast logs \
+    --rpc-url $RPC_URL \
+    --from-block 20000000 \
+    --to-block 20001000 \
+    'OperatorAVSRegistrationStatusUpdated(address indexed operator, address indexed avs, IAVSDirectory.OperatorAVSRegistrationStatus status)' \
+    --address $(jq -r '.addresses.avsDirectory' deployments/eigenlayer.json)
+```
+
+Now that we got an operator and an AVS address we can plug that into queries requiring this:
+```
+cast call \
+    --rpc-url $RPC_URL \
+    $(jq -r '.addresses.avsDirectory' deployments/eigenlayer.json) \
+    "avsOperatorStatus(address,address)(bool)" 0x23221c5bb90c7c57ecc1e75513e2e4257673f0ef 0x0f4e73f02e2b78f424a8e3f8e8553761c305f4d1
+```
+
+```
+cast call \
+    --rpc-url $RPC_URL \
+    $(jq -r '.addresses.delegationManager' deployments/eigenlayer.json) \
+    "operatorDetails(address)(address,address,uint32)" 0x0f4e73f02e2b78f424a8e3f8e8553761c305f4d1
+```
+
+#### Using Solidity and forge scripts
+
+#### Using Rust and alloy
+
+### Mainnet interaction - fork testing
 
 In the last section we looked at read-only exploratory properties of the protocol. What if we want to test how it actually works? That's best done by interacting with it.
 
@@ -60,6 +103,6 @@ Some natural interaction-style questions, simplest to most complex, could be:
 
 We'll fork mainnet to try our interactions. We have different options for writing them:
 
-#### Using Solidity with foundry's anvil and forge
+#### Using Solidity, anvil and forge
 
-#### Using Rust (alloy-rs)
+#### Using Rust and alloy
