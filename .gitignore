@@ -1,3 +1,7 @@
 .idea
 
 .env
+
+# Added by cargo
+
+/target
